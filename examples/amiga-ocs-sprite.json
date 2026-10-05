@@ -1,0 +1,11 @@
+{
+  "name": "hero",
+  "target": "amiga-ocs",
+  "kind": "sprite",
+  "width": 32,
+  "height": 48,
+  "colors": 16,
+  "metadata": {
+    "note": "M0 manifest fixture"
+  }
+}
