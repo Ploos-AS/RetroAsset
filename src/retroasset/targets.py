@@ -1,18 +1,18 @@
-from dataclasses import dataclass
 from .model import AssetManifest
+from .profiles import PROFILES, TargetProfile, get_profile
 
 
-@dataclass(frozen=True)
 class ValidationResult:
-    errors: tuple[str, ...] = ()
-    warnings: tuple[str, ...] = ()
+    def __init__(self, errors=(), warnings=()):
+        self.errors = tuple(errors)
+        self.warnings = tuple(warnings)
 
     @property
     def ok(self) -> bool:
         return not self.errors
 
 
-def validate_amiga_ocs(asset: AssetManifest) -> ValidationResult:
+def _validate_common(asset: AssetManifest, profile: TargetProfile) -> ValidationResult:
     errors: list[str] = []
     warnings: list[str] = []
 
@@ -23,22 +23,26 @@ def validate_amiga_ocs(asset: AssetManifest) -> ValidationResult:
     if asset.colors is not None:
         if asset.colors <= 0:
             errors.append("colors must be positive")
-        elif asset.colors > 32:
-            errors.append("amiga-ocs baseline supports at most 32 indexed colors")
-        elif asset.colors not in (2, 4, 8, 16, 32):
-            warnings.append("color count does not map exactly to a full OCS bitplane set")
+        elif profile.max_colors is not None and asset.colors > profile.max_colors:
+            errors.append(
+                f"{profile.id} supports at most {profile.max_colors} colors"
+            )
 
-    return ValidationResult(tuple(errors), tuple(warnings))
+    if profile.family == "raster" and asset.colors is not None:
+        if profile.id in ("amiga-ocs", "amiga-ecs") and asset.colors not in (2, 4, 8, 16, 32):
+            warnings.append("color count does not map exactly to a full OCS/ECS bitplane set")
 
+    if profile.family == "character":
+        if asset.width is not None and profile.columns is not None and asset.width != profile.columns:
+            warnings.append(f"profile default geometry is {profile.columns} columns")
+        if asset.height is not None and profile.rows is not None and asset.height != profile.rows:
+            warnings.append(f"profile default geometry is {profile.rows} rows")
 
-VALIDATORS = {
-    "amiga-ocs": validate_amiga_ocs,
-}
+    return ValidationResult(errors, warnings)
 
 
 def validate(asset: AssetManifest) -> ValidationResult:
-    try:
-        validator = VALIDATORS[asset.target]
-    except KeyError as exc:
-        raise ValueError(f"unknown target: {asset.target}") from exc
-    return validator(asset)
+    return _validate_common(asset, get_profile(asset.target))
+
+
+VALIDATORS = {profile_id: validate for profile_id in PROFILES}
