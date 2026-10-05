@@ -1,0 +1,12 @@
+{
+  "name": "bbs-login",
+  "target": "ansi-cp437",
+  "kind": "character-screen",
+  "width": 80,
+  "height": 25,
+  "colors": 16,
+  "metadata": {
+    "charset": "cp437",
+    "note": "M0.1 character target fixture"
+  }
+}
