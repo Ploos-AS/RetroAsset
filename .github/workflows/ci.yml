@@ -15,4 +15,7 @@ jobs:
       - run: python -m pip install -e .
       - run: python -m unittest discover -s tests -v
       - run: retroasset targets
+      - run: retroasset profile amiga-ocs
+      - run: retroasset profile ansi-cp437
       - run: retroasset validate examples/amiga-ocs-sprite.json
+      - run: retroasset validate examples/ansi-cp437-screen.json
