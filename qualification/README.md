@@ -20,3 +20,5 @@ by the documented emulator/runtime and evidence has been captured.
 - Amiga: project Amiga runtime infrastructure / compatible ILBM consumer
 
 Qualification jobs remain separate from fast unit-test CI.
+
+<!-- qualification-trigger: direct-monitor-load -->
