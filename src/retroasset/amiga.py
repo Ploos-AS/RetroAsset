@@ -87,10 +87,21 @@ def decode_ilbm(data: bytes) -> IndexedBitmap:
     width, height, _, _, planes, _, compression, _, _, _, _, _, _ = struct.unpack(
         ">HHhhBBBBHBBhh", bmhd
     )
-    if compression != 0:
-        raise ValueError("compressed ILBM decoding not implemented yet")
+    if compression == 0:
+        planar = body
+    elif compression == 1:
+        stride = row_bytes(width)
+        decoded = bytearray()
+        offset = 0
+        for _y in range(height):
+            for _plane in range(planes):
+                row, offset = byterun1_decode_from(body, offset, stride)
+                decoded.extend(row)
+        planar = bytes(decoded)
+    else:
+        raise ValueError(f"unsupported ILBM compression: {compression}")
     palette = tuple(tuple(cmap[i:i + 3]) for i in range(0, len(cmap), 3))
-    pixels = unpack_planar(body, width, height, planes)
+    pixels = unpack_planar(planar, width, height, planes)
     return IndexedBitmap(width, height, pixels, palette)
 
 
@@ -121,26 +132,38 @@ def byterun1_encode(data: bytes) -> bytes:
     return bytes(out)
 
 
-def byterun1_decode(data: bytes, expected_size: int) -> bytes:
+def byterun1_decode_from(data: bytes, offset: int, expected_size: int) -> tuple[bytes, int]:
     out = bytearray()
-    i = 0
-    while i < len(data) and len(out) < expected_size:
+    i = offset
+    while len(out) < expected_size:
+        if i >= len(data):
+            raise ValueError("truncated ByteRun1 stream")
         control = data[i]
         i += 1
         signed = control if control < 128 else control - 256
         if 0 <= signed <= 127:
             count = signed + 1
+            if i + count > len(data):
+                raise ValueError("truncated ByteRun1 literal")
+            if len(out) + count > expected_size:
+                raise ValueError("ByteRun1 row exceeds expected size")
             out.extend(data[i:i + count])
             i += count
         elif -127 <= signed <= -1:
             if i >= len(data):
                 raise ValueError("truncated ByteRun1 repeat")
-            out.extend(data[i:i + 1] * (1 - signed))
+            count = 1 - signed
+            if len(out) + count > expected_size:
+                raise ValueError("ByteRun1 row exceeds expected size")
+            out.extend(data[i:i + 1] * count)
             i += 1
         # -128 is a no-op.
-    if len(out) != expected_size:
-        raise ValueError("ByteRun1 output size mismatch")
-    return bytes(out)
+    return bytes(out), i
+
+
+def byterun1_decode(data: bytes, expected_size: int) -> bytes:
+    decoded, _ = byterun1_decode_from(data, 0, expected_size)
+    return decoded
 
 
 def _compress_body_by_rows(bitmap: IndexedBitmap, planar: bytes) -> bytes:
