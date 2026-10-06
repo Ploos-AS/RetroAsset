@@ -3,6 +3,8 @@ import json
 from pathlib import Path
 
 from .amiga import encode_ilbm, encode_ilbm_compressed
+from .ansi import decode_ans, encode_ans
+from .character import CharacterAsset, CharacterCell
 from .exporters import export_asm, export_c, export_raw_planar
 from .indexed import IndexedBitmap
 from .model import AssetManifest
@@ -44,6 +46,18 @@ def main() -> int:
                         help="ILBM BODY compression (default: none)")
     export.add_argument("-o", "--output", type=Path, required=True)
 
+    char_import = sub.add_parser("char-import", help="import a native character-art asset")
+    char_import.add_argument("source", type=Path)
+    char_import.add_argument("--target", required=True, choices=("ansi-cp437",))
+    char_import.add_argument("--columns", type=int, required=True)
+    char_import.add_argument("--rows", type=int, required=True)
+    char_import.add_argument("-o", "--output", type=Path, required=True)
+
+    char_export = sub.add_parser("char-export", help="export a native character-art asset")
+    char_export.add_argument("source", type=Path)
+    char_export.add_argument("--target", required=True, choices=("ansi-cp437",))
+    char_export.add_argument("-o", "--output", type=Path, required=True)
+
     args = parser.parse_args()
 
     if args.command == "targets":
@@ -58,6 +72,37 @@ def main() -> int:
             print(f"error: unknown target: {args.target}")
             return 2
         print(json.dumps(profile.__dict__, indent=2))
+        return 0
+
+    if args.command == "char-import":
+        payload = args.source.read_bytes()
+        asset = decode_ans(payload, args.columns, args.rows)
+        data = {
+            "columns": asset.columns,
+            "rows": asset.rows,
+            "cells": [
+                {
+                    "codepoint": cell.codepoint,
+                    "foreground": cell.foreground,
+                    "background": cell.background,
+                    "blink": cell.blink,
+                }
+                for cell in asset.cells
+            ],
+        }
+        args.output.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        print(f"WROTE {args.output}")
+        return 0
+
+    if args.command == "char-export":
+        data = json.loads(args.source.read_text(encoding="utf-8"))
+        asset = CharacterAsset(
+            columns=data["columns"],
+            rows=data["rows"],
+            cells=tuple(CharacterCell(**cell) for cell in data["cells"]),
+        )
+        args.output.write_bytes(encode_ans(asset))
+        print(f"WROTE {args.output}")
         return 0
 
     if args.command == "export":
