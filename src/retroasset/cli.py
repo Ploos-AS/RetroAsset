@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 
 from .amiga import encode_ilbm
+from .exporters import export_asm, export_c, export_raw_planar
 from .indexed import IndexedBitmap
 from .model import AssetManifest
 from .profiles import PROFILES
@@ -37,7 +38,8 @@ def main() -> int:
     export = sub.add_parser("export", help="export a native retro asset")
     export.add_argument("source", type=Path)
     export.add_argument("--target", required=True, choices=sorted(PROFILES))
-    export.add_argument("--format", required=True, choices=("ilbm",))
+    export.add_argument("--format", required=True, choices=("ilbm", "raw", "c", "asm"))
+    export.add_argument("--symbol", default="asset")
     export.add_argument("-o", "--output", type=Path, required=True)
 
     args = parser.parse_args()
@@ -57,15 +59,22 @@ def main() -> int:
         return 0
 
     if args.command == "export":
-        if not args.target.startswith("amiga-") or args.format != "ilbm":
-            print("error: ILBM export requires an Amiga target")
+        if not args.target.startswith("amiga-"):
+            print("error: M0.3 native exporters currently require an Amiga target")
             return 2
         bitmap = _load_indexed(args.source)
         profile = PROFILES[args.target]
         if profile.max_colors is not None and len(bitmap.palette) > profile.max_colors:
             print(f"error: {args.target} supports at most {profile.max_colors} colors")
             return 1
-        args.output.write_bytes(encode_ilbm(bitmap))
+        if args.format == "ilbm":
+            args.output.write_bytes(encode_ilbm(bitmap))
+        elif args.format == "raw":
+            args.output.write_bytes(export_raw_planar(bitmap))
+        elif args.format == "c":
+            args.output.write_text(export_c(bitmap, args.symbol), encoding="utf-8")
+        elif args.format == "asm":
+            args.output.write_text(export_asm(bitmap, args.symbol), encoding="utf-8")
         print(f"WROTE {args.output}")
         return 0
 
