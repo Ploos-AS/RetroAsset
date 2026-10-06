@@ -58,6 +58,32 @@ PASS
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the design.
 
+
+## OCI image
+
+RetroAsset is also designed to run as a reproducible OCI toolchain. The image uses an Alpine/Python baseline and runs as an unprivileged user.
+
+The stable container I/O contract is:
+
+- mount source assets read-only at `/work/input`
+- mount generated assets read-write at `/work/output`
+- invoke the same `retroasset` CLI used by native installations
+
+Example after the image has been published:
+
+```sh
+docker run --rm \
+  -v "$PWD/examples:/work/input:ro" \
+  -v "$PWD/output:/work/output" \
+  ghcr.io/ploos-as/retroasset:edge \
+  export /work/input/amiga-ocs-checker.json \
+    --target amiga-ocs --format ilbm -o /work/output/checker.ilbm
+```
+
+Published images target `linux/amd64` and `linux/arm64`. Release workflows produce immutable `sha-*` tags, semantic-version tags, and `edge` for main. Qualification and reproducible builds should prefer immutable tags rather than `edge`.
+
+The baseline image contains no AI provider runtime, proprietary ROMs, AmigaOS files, or other licensed machine firmware.
+
 ## License
 
 Software is licensed under the MIT License.
