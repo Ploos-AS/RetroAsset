@@ -35,6 +35,7 @@ def export_viewer_prg(screen: C64Screen) -> bytes:
             0xd0, 0xf7,                   # BNE back to LDA (relative -9)
         ])
 
+    # Each page loop is 11 bytes: LDX(2)+LDA abs,X(3)+STA abs,X(3)+INX(1)+BNE(2).
     # Code size is deterministic: 8 page loops * 11 bytes + RTS.
     code_size = 8 * 11 + 1
     screen_src = 0x080d + code_size
