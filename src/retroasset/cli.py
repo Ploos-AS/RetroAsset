@@ -2,7 +2,7 @@ import argparse
 import json
 from pathlib import Path
 
-from .amiga import encode_ilbm
+from .amiga import encode_ilbm, encode_ilbm_compressed
 from .exporters import export_asm, export_c, export_raw_planar
 from .indexed import IndexedBitmap
 from .model import AssetManifest
@@ -40,6 +40,8 @@ def main() -> int:
     export.add_argument("--target", required=True, choices=sorted(PROFILES))
     export.add_argument("--format", required=True, choices=("ilbm", "raw", "c", "asm"))
     export.add_argument("--symbol", default="asset")
+    export.add_argument("--compression", choices=("none", "byterun1"), default="none",
+                        help="ILBM BODY compression (default: none)")
     export.add_argument("-o", "--output", type=Path, required=True)
 
     args = parser.parse_args()
@@ -67,8 +69,12 @@ def main() -> int:
         if profile.max_colors is not None and len(bitmap.palette) > profile.max_colors:
             print(f"error: {args.target} supports at most {profile.max_colors} colors")
             return 1
+        if args.compression != "none" and args.format != "ilbm":
+            print("error: --compression applies only to ILBM export")
+            return 2
         if args.format == "ilbm":
-            args.output.write_bytes(encode_ilbm(bitmap))
+            encoder = encode_ilbm_compressed if args.compression == "byterun1" else encode_ilbm
+            args.output.write_bytes(encoder(bitmap))
         elif args.format == "raw":
             args.output.write_bytes(export_raw_planar(bitmap))
         elif args.format == "c":
