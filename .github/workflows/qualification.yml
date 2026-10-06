@@ -34,10 +34,11 @@ jobs:
         run: |
           mkdir -p qualification/runtime-input
           docker run --rm \
-            -v "$PWD:/workspace" \
+            -v "$PWD:/workspace:ro" \
+            -v "$PWD/qualification/runtime-input:/output" \
             -w /workspace \
             ghcr.io/ploos-as/amiga-dev:edge \
-            sh -ec 'amiga-check && m68k-amigaos-gcc -m68000 -Os -Wall -Wextra -Werror -DRETROASSET_EMBEDDED_FIXTURES qualification/amiga/ilbm_verify.c -o qualification/runtime-input/ilbm-verify && amiga-inspect qualification/runtime-input/ilbm-verify'
+            sh -ec 'amiga-check && m68k-amigaos-gcc -m68000 -Os -Wall -Wextra -Werror -DRETROASSET_EMBEDDED_FIXTURES qualification/amiga/ilbm_verify.c -o /tmp/ilbm-verify && amiga-inspect /tmp/ilbm-verify && cp /tmp/ilbm-verify /output/ilbm-verify'
           cp qualification/amiga/amiga-runtime.json qualification/runtime-input/amiga-runtime.json
           test -s qualification/runtime-input/ilbm-verify
           test -s qualification/runtime-input/amiga-runtime.json
