@@ -1,0 +1,5 @@
+; VICE monitor commands for RetroAsset C64 qualification.
+; Autostart fixture.prg before executing this script.
+break 0820
+command 1 "save \"qualification/generated/screen-dump.bin\" 0 0400 07e7; save \"qualification/generated/color-dump.bin\" 0 d800 dbe7; quit"
+x
