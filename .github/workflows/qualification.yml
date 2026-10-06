@@ -55,7 +55,12 @@ jobs:
           set -a
           . qualification/generated/roms.env
           set +a
-          xvfb-run -a x64sc             -basic "$RETROASSET_BASIC_ROM"             -kernal "$RETROASSET_KERNAL_ROM"             -chargen "$RETROASSET_CHARGEN_ROM"             -autostart qualification/generated/fixture.prg             -moncommands qualification/vice-monitor.txt             -console
+          xvfb-run -a x64sc \
+            -basic "$RETROASSET_BASIC_ROM" \
+            -kernal "$RETROASSET_KERNAL_ROM" \
+            -chargen "$RETROASSET_CHARGEN_ROM" \
+            -moncommands qualification/vice-monitor.txt \
+            -console
       - name: Verify emulated RAM
         run: python qualification/verify_c64.py
       - uses: actions/upload-artifact@v4
