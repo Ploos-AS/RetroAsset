@@ -44,6 +44,18 @@ class AmigaExportTests(unittest.TestCase):
         self.assertEqual(data[:4], b"FORM")
         self.assertIn(b"BODY", data)
 
+    def test_compressed_ilbm_round_trip(self):
+        decoded = decode_ilbm(encode_ilbm_compressed(self.bitmap))
+        self.assertEqual(decoded, self.bitmap)
+
+    def test_byterun1_rejects_truncated_literal(self):
+        with self.assertRaisesRegex(ValueError, "truncated ByteRun1 literal"):
+            byterun1_decode(bytes([2, 0xaa]), 3)
+
+    def test_byterun1_rejects_row_overflow(self):
+        with self.assertRaisesRegex(ValueError, "exceeds expected size"):
+            byterun1_decode(bytes([0xfd, 0xaa]), 2)
+
 
 if __name__ == "__main__":
     unittest.main()
