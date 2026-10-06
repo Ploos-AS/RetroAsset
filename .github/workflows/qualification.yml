@@ -50,6 +50,51 @@ jobs:
           path: qualification/runtime-input/
           if-no-files-found: error
 
+
+  amiga-aros-q3:
+    needs: amiga-m68k-q1
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    env:
+      AMIGA_RUNTIME_IMAGE: ghcr.io/ploos-as/amiga-runtime:sha-fd7cc88
+    steps:
+      - name: Download Q1 payload
+        uses: actions/download-artifact@v4
+        with:
+          name: retroasset-amiga-m68k-q1
+          path: runtime-input
+      - name: Verify project contract
+        run: |
+          test -s runtime-input/amiga-runtime.json
+          jq -e '.schema == 1 and .architecture == "m68k"' runtime-input/amiga-runtime.json >/dev/null
+      - name: Pull immutable Amiga runtime
+        run: docker pull "$AMIGA_RUNTIME_IMAGE"
+      - name: Prepare AROS/m68k runtime
+        run: |
+          mkdir -p runtime-evidence runtime-aros
+          docker run --rm \
+            -v "$PWD/runtime-aros:/work/aros" \
+            -e AROS_RUNTIME_DIR=/work/aros \
+            "$AMIGA_RUNTIME_IMAGE" prepare-aros | tee runtime-evidence/aros-prepare.log
+          grep -Fq 'AROS m68k runtime prepared: PASS' runtime-evidence/aros-prepare.log
+      - name: Qualify RetroAsset ILBM payload in AROS/m68k
+        run: |
+          docker run --rm \
+            -v "$PWD/runtime-input:/work/input:ro" \
+            -v "$PWD/runtime-evidence:/work/evidence" \
+            -v "$PWD/runtime-aros:/work/aros" \
+            -e AROS_RUNTIME_DIR=/work/aros \
+            "$AMIGA_RUNTIME_IMAGE" qualify-contract /work/input --profile a1200-020-aros
+      - name: Upload AROS qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: retroasset-amiga-aros-q3-evidence
+          path: runtime-evidence/
+          if-no-files-found: warn
+
   c64-structural:
     runs-on: ubuntu-latest
     steps:
