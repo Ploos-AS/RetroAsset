@@ -92,3 +92,80 @@ def decode_ilbm(data: bytes) -> IndexedBitmap:
     palette = tuple(tuple(cmap[i:i + 3]) for i in range(0, len(cmap), 3))
     pixels = unpack_planar(body, width, height, planes)
     return IndexedBitmap(width, height, pixels, palette)
+
+
+def byterun1_encode(data: bytes) -> bytes:
+    out = bytearray()
+    i = 0
+    while i < len(data):
+        run = 1
+        while i + run < len(data) and run < 128 and data[i + run] == data[i]:
+            run += 1
+        if run >= 2:
+            out.append((1 - run) & 0xff)
+            out.append(data[i])
+            i += run
+            continue
+        start = i
+        i += 1
+        while i < len(data) and i - start < 128:
+            run = 1
+            while i + run < len(data) and run < 128 and data[i + run] == data[i]:
+                run += 1
+            if run >= 2:
+                break
+            i += 1
+        literal = data[start:i]
+        out.append(len(literal) - 1)
+        out.extend(literal)
+    return bytes(out)
+
+
+def byterun1_decode(data: bytes, expected_size: int) -> bytes:
+    out = bytearray()
+    i = 0
+    while i < len(data) and len(out) < expected_size:
+        control = data[i]
+        i += 1
+        signed = control if control < 128 else control - 256
+        if 0 <= signed <= 127:
+            count = signed + 1
+            out.extend(data[i:i + count])
+            i += count
+        elif -127 <= signed <= -1:
+            if i >= len(data):
+                raise ValueError("truncated ByteRun1 repeat")
+            out.extend(data[i:i + 1] * (1 - signed))
+            i += 1
+        # -128 is a no-op.
+    if len(out) != expected_size:
+        raise ValueError("ByteRun1 output size mismatch")
+    return bytes(out)
+
+
+def _compress_body_by_rows(bitmap: IndexedBitmap, planar: bytes) -> bytes:
+    stride = row_bytes(bitmap.width)
+    row_plane_size = stride
+    out = bytearray()
+    pos = 0
+    for _y in range(bitmap.height):
+        for _plane in range(bitmap.planes):
+            block = planar[pos:pos + row_plane_size]
+            pos += row_plane_size
+            out.extend(byterun1_encode(block))
+    return bytes(out)
+
+
+def encode_ilbm_compressed(bitmap: IndexedBitmap) -> bytes:
+    if bitmap.planes > 8:
+        raise ValueError("ILBM exporter supports at most 8 bitplanes")
+    bmhd = struct.pack(
+        ">HHhhBBBBHBBhh",
+        bitmap.width, bitmap.height, 0, 0,
+        bitmap.planes, 0, 1, 0, 0,
+        10, 11, bitmap.width, bitmap.height,
+    )
+    cmap = bytes(channel for rgb in bitmap.palette for channel in rgb)
+    body = _compress_body_by_rows(bitmap, pack_planar(bitmap))
+    contents = b"ILBM" + _chunk(b"BMHD", bmhd) + _chunk(b"CMAP", cmap) + _chunk(b"BODY", body)
+    return b"FORM" + struct.pack(">I", len(contents)) + contents
