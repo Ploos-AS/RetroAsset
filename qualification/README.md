@@ -43,7 +43,10 @@ both guest markers:
 - `RETROASSET_ILBM_BYTERUN1_PASS 16x2 1-plane`
 
 A successful contract run requires these lines, so both ILBM variants are
-qualified at Q3 under AROS/m68k with FS-UAE.
+qualified at Q3 under AROS/m68k with FS-UAE. The strengthened verifier also
+requires the exact source fixture palette (black/white) and decoded planar
+bytes (`55 55 aa aa`). Actions run `37466194514` passed these exact-content
+checks for both uncompressed and ByteRun1 ILBM.
 
 This is redistributable AROS/m68k runtime evidence. It is **not** Q4 classic
 AmigaOS qualification and must not be reported as such.
