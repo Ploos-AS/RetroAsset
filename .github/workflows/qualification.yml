@@ -26,7 +26,7 @@ jobs:
           name: retroasset-c64-fixture
           path: qualification/generated/
 
-  c64-vice:
+  c64-vice-open-roms:
     runs-on: ubuntu-latest
     needs: c64-structural
     steps:
@@ -36,18 +36,30 @@ jobs:
           python-version: "3.12"
       - run: python -m pip install -e .
       - run: python qualification/generate_c64_fixture.py
-      - name: Install VICE
+      - name: Install VICE and Open ROMs build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y vice
+          sudo apt-get install -y vice git make gcc
           x64sc --version
-      - name: Run VICE qualification
+      - name: Build redistributable C64 Open ROMs
         run: |
-          xvfb-run -a x64sc             -autostart qualification/generated/fixture.prg             -moncommands qualification/vice-monitor.txt             -console
+          git clone --depth 1 https://github.com/MEGA65/open-roms.git /tmp/open-roms
+          make -C /tmp/open-roms
+          find /tmp/open-roms/bin -maxdepth 1 -type f -print
+      - name: Locate Open ROMs
+        run: |
+          python qualification/find_open_roms.py /tmp/open-roms/bin qualification/generated/roms.env
+          cat qualification/generated/roms.env
+      - name: Run VICE qualification with Open ROMs
+        run: |
+          set -a
+          . qualification/generated/roms.env
+          set +a
+          xvfb-run -a x64sc             -basic "$RETROASSET_BASIC_ROM"             -kernal "$RETROASSET_KERNAL_ROM"             -chargen "$RETROASSET_CHARGEN_ROM"             -autostart qualification/generated/fixture.prg             -moncommands qualification/vice-monitor.txt             -console
       - name: Verify emulated RAM
         run: python qualification/verify_c64.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: retroasset-c64-vice-evidence
+          name: retroasset-c64-vice-open-roms-evidence
           path: qualification/generated/
