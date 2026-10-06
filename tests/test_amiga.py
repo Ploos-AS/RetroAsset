@@ -1,7 +1,7 @@
 import struct
 import unittest
 
-from retroasset.amiga import encode_ilbm, pack_planar, row_bytes
+from retroasset.amiga import decode_ilbm, encode_ilbm, pack_planar, row_bytes
 from retroasset.indexed import IndexedBitmap
 
 
@@ -29,6 +29,10 @@ class AmigaExportTests(unittest.TestCase):
         self.assertIn(b"BMHD", data)
         self.assertIn(b"CMAP", data)
         self.assertIn(b"BODY", data)
+
+    def test_ilbm_round_trip(self):
+        decoded = decode_ilbm(encode_ilbm(self.bitmap))
+        self.assertEqual(decoded, self.bitmap)
 
 
 if __name__ == "__main__":
