@@ -86,6 +86,13 @@ jobs:
           qualification/generated/ilbm-verify-host qualification/generated/amiga-uncompressed.ilbm qualification/generated/amiga-byterun1.ilbm | tee qualification/generated/ilbm-verify-host.log
           grep -Fq 'RETROASSET_ILBM_UNCOMPRESSED_PASS' qualification/generated/ilbm-verify-host.log
           grep -Fq 'RETROASSET_ILBM_BYTERUN1_PASS' qualification/generated/ilbm-verify-host.log
+      - name: Smoke-test embedded guest payload mode
+        run: |
+          python qualification/embed_amiga_fixtures.py
+          cc -std=c99 -Wall -Wextra -Werror -O2 -DRETROASSET_EMBEDDED_FIXTURES qualification/amiga/ilbm_verify.c -o qualification/generated/ilbm-verify-embedded-host
+          qualification/generated/ilbm-verify-embedded-host | tee qualification/generated/ilbm-verify-embedded-host.log
+          grep -Fq 'RETROASSET_ILBM_UNCOMPRESSED_PASS' qualification/generated/ilbm-verify-embedded-host.log
+          grep -Fq 'RETROASSET_ILBM_BYTERUN1_PASS' qualification/generated/ilbm-verify-embedded-host.log
       - name: Install independent ILBM consumer
         run: |
           sudo apt-get update
