@@ -1,7 +1,7 @@
 ; RetroAsset C64 qualification.
 ; Load PRG directly; no disk/drive ROM is required.
 load "qualification/generated/fixture.prg" 0
-; Viewer code is 93 bytes at $080d, so RTS is at $0869.
+; Viewer code completes at the RTS at $0869.
 break 0869
-command 1 "save \"qualification/generated/screen-dump.bin\" 0 0400 07e7; save \"qualification/generated/color-dump.bin\" 0 d800 dbe7; quit"
+command 1 "bsave \"qualification/generated/screen-dump.bin\" 0 0400 07e8; bsave \"qualification/generated/color-dump.bin\" 0 d800 dbe8; quit"
 g 080d
