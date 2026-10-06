@@ -7,6 +7,7 @@ on:
     paths:
       - "src/retroasset/c64prg.py"
       - "src/retroasset/petscii.py"
+      - "src/retroasset/amiga.py"
       - "qualification/**"
       - ".github/workflows/qualification.yml"
 
@@ -67,4 +68,33 @@ jobs:
         if: always()
         with:
           name: retroasset-c64-vice-open-roms-evidence
+          path: qualification/generated/
+
+  amiga-ilbm-consumer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e .
+      - run: python -m unittest tests.test_amiga -v
+      - run: python qualification/generate_amiga_fixtures.py
+      - name: Install independent ILBM consumer
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick
+          convert -version
+      - name: Decode generated ILBM files independently
+        run: |
+          identify qualification/generated/amiga-uncompressed.ilbm
+          identify qualification/generated/amiga-byterun1.ilbm
+          convert qualification/generated/amiga-uncompressed.ilbm qualification/generated/amiga-uncompressed.ppm
+          convert qualification/generated/amiga-byterun1.ilbm qualification/generated/amiga-byterun1.ppm
+          test -s qualification/generated/amiga-uncompressed.ppm
+          test -s qualification/generated/amiga-byterun1.ppm
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: retroasset-amiga-ilbm-consumer-evidence
           path: qualification/generated/
