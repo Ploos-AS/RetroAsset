@@ -5,6 +5,8 @@ from pathlib import Path
 from .amiga import encode_ilbm, encode_ilbm_compressed
 from .ansi import decode_ans, encode_ans
 from .character import CharacterAsset, CharacterCell
+from .c64prg import export_viewer_prg
+from .petscii import C64Screen, PetsciiCell, export_color_ram, export_screen_ram
 from .exporters import export_asm, export_c, export_raw_planar
 from .indexed import IndexedBitmap
 from .model import AssetManifest
@@ -56,7 +58,8 @@ def main() -> int:
 
     char_export = sub.add_parser("char-export", help="export a native character-art asset")
     char_export.add_argument("source", type=Path)
-    char_export.add_argument("--target", required=True, choices=("ansi-cp437",))
+    char_export.add_argument("--target", required=True, choices=("ansi-cp437", "c64-screen"))
+    char_export.add_argument("--format", choices=("ans", "screen", "color", "prg"))
     char_export.add_argument("-o", "--output", type=Path, required=True)
 
     args = parser.parse_args()
@@ -113,15 +116,35 @@ def main() -> int:
 
     if args.command == "char-export":
         data = json.loads(args.source.read_text(encoding="utf-8"))
-        asset = CharacterAsset(
-            columns=data["columns"],
-            rows=data["rows"],
-            cells=tuple(CharacterCell(**cell) for cell in data["cells"]),
-        )
-        payload = encode_ans(asset)
-        if "sauce" in data:
-            meta = Sauce(**data["sauce"])
-            payload += encode_sauce(meta, len(payload))
+        if args.target == "ansi-cp437":
+            if args.format not in (None, "ans"):
+                print("error: ansi-cp437 supports only --format ans")
+                return 2
+            asset = CharacterAsset(
+                columns=data["columns"],
+                rows=data["rows"],
+                cells=tuple(CharacterCell(**cell) for cell in data["cells"]),
+            )
+            payload = encode_ans(asset)
+            if "sauce" in data:
+                meta = Sauce(**data["sauce"])
+                payload += encode_sauce(meta, len(payload))
+        else:
+            fmt = args.format or "screen"
+            if fmt not in ("screen", "color", "prg"):
+                print("error: c64-screen supports --format screen, color, or prg")
+                return 2
+            screen = C64Screen(
+                columns=data["columns"],
+                rows=data["rows"],
+                cells=tuple(PetsciiCell(**cell) for cell in data["cells"]),
+            )
+            if fmt == "screen":
+                payload = export_screen_ram(screen)
+            elif fmt == "color":
+                payload = export_color_ram(screen)
+            else:
+                payload = export_viewer_prg(screen)
         args.output.write_bytes(payload)
         print(f"WROTE {args.output}")
         return 0
