@@ -32,7 +32,7 @@ def export_viewer_prg(screen: C64Screen) -> bytes:
             0xbd, src & 0xff, src >> 8,   # LDA src,X
             0x9d, dst & 0xff, dst >> 8,   # STA dst,X
             0xe8,                         # INX
-            0xd0, 0xf7,                   # BNE back to LDA
+            0xd0, 0xf7,                   # BNE back to LDA (relative -9)
         ])
 
     # Code size is deterministic: 8 page loops * 11 bytes + RTS.
