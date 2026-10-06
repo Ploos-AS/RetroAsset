@@ -9,7 +9,7 @@ def export_viewer_prg(screen: C64Screen) -> bytes:
 
     # $0801 BASIC line: 10 SYS2061
     basic = bytes([
-        0x0b, 0x08,       # pointer to next BASIC line
+        0x0c, 0x08,       # pointer to next BASIC line/end marker
         0x0a, 0x00,       # line 10
         0x9e,             # SYS token
         0x32, 0x30, 0x36, 0x31,  # "2061"
