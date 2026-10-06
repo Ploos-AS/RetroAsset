@@ -2,6 +2,8 @@ import argparse
 import json
 from pathlib import Path
 
+from .amiga import encode_ilbm
+from .indexed import IndexedBitmap
 from .model import AssetManifest
 from .profiles import PROFILES
 from .targets import validate
@@ -10,6 +12,16 @@ from .targets import validate
 def _load_manifest(path: Path) -> AssetManifest:
     data = json.loads(path.read_text(encoding="utf-8"))
     return AssetManifest(**data)
+
+
+def _load_indexed(path: Path) -> IndexedBitmap:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return IndexedBitmap(
+        width=data["width"],
+        height=data["height"],
+        pixels=tuple(data["pixels"]),
+        palette=tuple(tuple(rgb) for rgb in data["palette"]),
+    )
 
 
 def main() -> int:
@@ -21,6 +33,12 @@ def main() -> int:
     show.add_argument("target")
     check = sub.add_parser("validate", help="validate an asset manifest")
     check.add_argument("manifest", type=Path)
+
+    export = sub.add_parser("export", help="export a native retro asset")
+    export.add_argument("source", type=Path)
+    export.add_argument("--target", required=True, choices=sorted(PROFILES))
+    export.add_argument("--format", required=True, choices=("ilbm",))
+    export.add_argument("-o", "--output", type=Path, required=True)
 
     args = parser.parse_args()
 
@@ -36,6 +54,19 @@ def main() -> int:
             print(f"error: unknown target: {args.target}")
             return 2
         print(json.dumps(profile.__dict__, indent=2))
+        return 0
+
+    if args.command == "export":
+        if not args.target.startswith("amiga-") or args.format != "ilbm":
+            print("error: ILBM export requires an Amiga target")
+            return 2
+        bitmap = _load_indexed(args.source)
+        profile = PROFILES[args.target]
+        if profile.max_colors is not None and len(bitmap.palette) > profile.max_colors:
+            print(f"error: {args.target} supports at most {profile.max_colors} colors")
+            return 1
+        args.output.write_bytes(encode_ilbm(bitmap))
+        print(f"WROTE {args.output}")
         return 0
 
     asset = _load_manifest(args.manifest)
