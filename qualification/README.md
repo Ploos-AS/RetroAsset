@@ -8,11 +8,25 @@ qualification.
 | Target | Structural | Runtime |
 |---|---|---|
 | C64 PRG | PASS | PASS — VICE 3.7.1 + MEGA65 Open ROMs |
-| Amiga ILBM uncompressed | unit-tested / round-trip | Amiga runtime: not yet qualified |
-| Amiga ILBM ByteRun1 | encode/decode round-trip PASS | Amiga runtime: not yet qualified |
+| Amiga ILBM uncompressed | round-trip + independent consumer PASS | Amiga runtime: not yet qualified |
+| Amiga ILBM ByteRun1 | round-trip + independent consumer PASS | Amiga runtime: not yet qualified |
 
 A native file format is not labelled runtime-qualified until it has been loaded
 by the documented emulator/runtime and evidence has been captured.
+
+## Amiga ILBM interoperability evidence
+
+The qualification workflow generates ILBM fixtures with RetroAsset and then
+decodes them with an independent consumer rather than RetroAsset's own decoder.
+ImageMagick 6.9.12-98 (via ilbmtoppm) successfully reads both fixtures as
+16x2, 1-plane ILBM images:
+
+- uncompressed ILBM: PASS
+- ByteRun1-compressed ILBM: PASS
+
+This establishes independent file-format interoperability. It is intentionally
+not labelled Amiga runtime qualification until the assets are loaded in the
+documented Amiga emulator/runtime environment.
 
 ## Planned runtimes
 
