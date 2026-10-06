@@ -1,7 +1,7 @@
 import struct
 import unittest
 
-from retroasset.amiga import decode_ilbm, encode_ilbm, pack_planar, row_bytes
+from retroasset.amiga import byterun1_decode, byterun1_encode, decode_ilbm, encode_ilbm, encode_ilbm_compressed, pack_planar, row_bytes
 from retroasset.indexed import IndexedBitmap
 
 
@@ -33,6 +33,16 @@ class AmigaExportTests(unittest.TestCase):
     def test_ilbm_round_trip(self):
         decoded = decode_ilbm(encode_ilbm(self.bitmap))
         self.assertEqual(decoded, self.bitmap)
+
+    def test_byterun1(self):
+        source = b"AAAABCDDDDDDDXYZ"
+        encoded = byterun1_encode(source)
+        self.assertEqual(byterun1_decode(encoded, len(source)), source)
+
+    def test_compressed_ilbm_header(self):
+        data = encode_ilbm_compressed(self.bitmap)
+        self.assertEqual(data[:4], b"FORM")
+        self.assertIn(b"BODY", data)
 
 
 if __name__ == "__main__":
