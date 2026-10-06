@@ -84,5 +84,20 @@ class CharacterCliTests(unittest.TestCase):
             self.assertGreater(prg.stat().st_size, 2000)
 
 
+    def test_petscii_stream_import_preserves_color_and_reverse(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "stream.pet"
+            restored = root / "screen.json"
+            # red, reverse on, 'A', reverse off, white, 'B'
+            src.write_bytes(bytes([0x1c, 0x12, 0x41, 0x92, 0x05, 0x42]))
+            subprocess.run([sys.executable, "-m", "retroasset.cli", "char-import", str(src),
+                            "--target", "c64-petscii", "--columns", "2", "--rows", "1",
+                            "-o", str(restored)], check=True)
+            data = json.loads(restored.read_text(encoding="utf-8"))
+            self.assertEqual(data["cells"][0], {"screen_code": 0x81, "color": 2})
+            self.assertEqual(data["cells"][1], {"screen_code": 0x02, "color": 1})
+
+
 if __name__ == "__main__":
     unittest.main()
