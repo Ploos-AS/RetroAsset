@@ -1,0 +1,35 @@
+import struct
+import unittest
+
+from retroasset.amiga import encode_ilbm, pack_planar, row_bytes
+from retroasset.indexed import IndexedBitmap
+
+
+class AmigaExportTests(unittest.TestCase):
+    def setUp(self):
+        self.bitmap = IndexedBitmap(
+            16, 2,
+            tuple([0, 1] * 8 + [1, 0] * 8),
+            ((0, 0, 0), (255, 255, 255)),
+        )
+
+    def test_word_aligned_rows(self):
+        self.assertEqual(row_bytes(1), 2)
+        self.assertEqual(row_bytes(16), 2)
+        self.assertEqual(row_bytes(17), 4)
+
+    def test_planar_fixture(self):
+        self.assertEqual(pack_planar(self.bitmap), bytes.fromhex("5555aaaa"))
+
+    def test_ilbm_form(self):
+        data = encode_ilbm(self.bitmap)
+        self.assertEqual(data[:4], b"FORM")
+        self.assertEqual(data[8:12], b"ILBM")
+        self.assertEqual(struct.unpack(">I", data[4:8])[0], len(data) - 8)
+        self.assertIn(b"BMHD", data)
+        self.assertIn(b"CMAP", data)
+        self.assertIn(b"BODY", data)
+
+
+if __name__ == "__main__":
+    unittest.main()
