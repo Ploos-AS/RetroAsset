@@ -8,8 +8,8 @@ qualification.
 | Target | Structural | Runtime |
 |---|---|---|
 | C64 PRG | PASS | PASS — VICE 3.7.1 + MEGA65 Open ROMs |
-| Amiga ILBM uncompressed | round-trip + independent consumer PASS | Amiga runtime: not yet qualified |
-| Amiga ILBM ByteRun1 | round-trip + independent consumer PASS | Amiga runtime: not yet qualified |
+| Amiga ILBM uncompressed | round-trip + independent consumer PASS | PASS — Q3 AROS/m68k under FS-UAE |
+| Amiga ILBM ByteRun1 | round-trip + independent consumer PASS | PASS — Q3 AROS/m68k under FS-UAE |
 
 A native file format is not labelled runtime-qualified until it has been loaded
 by the documented emulator/runtime and evidence has been captured.
@@ -24,9 +24,29 @@ ImageMagick 6.9.12-98 (via ilbmtoppm) successfully reads both fixtures as
 - uncompressed ILBM: PASS
 - ByteRun1-compressed ILBM: PASS
 
-This establishes independent file-format interoperability. It is intentionally
-not labelled Amiga runtime qualification until the assets are loaded in the
-documented Amiga emulator/runtime environment.
+This establishes independent file-format interoperability.
+
+## Amiga AROS/m68k runtime evidence
+
+The qualification workflow embeds the exact generated uncompressed and
+ByteRun1 fixtures into an independent C verifier, cross-builds it as an m68k
+Amiga Hunk with the qualified `Ploos-AS/amiga-dev` toolchain, and hands the
+Q1 artifact to the stable `Ploos-AS/amiga-runtime` consumer contract.
+
+GitHub Actions run `37433194653`, job `amiga-aros-q3`, passed with the
+immutable runtime image `ghcr.io/ploos-as/amiga-runtime:sha-fd7cc88`.
+The runtime prepared the redistributable AROS/m68k environment and executed
+the project contract with profile `a1200-020-aros`. The contract requires
+both guest markers:
+
+- `RETROASSET_ILBM_UNCOMPRESSED_PASS 16x2 1-plane`
+- `RETROASSET_ILBM_BYTERUN1_PASS 16x2 1-plane`
+
+A successful contract run requires these lines, so both ILBM variants are
+qualified at Q3 under AROS/m68k with FS-UAE.
+
+This is redistributable AROS/m68k runtime evidence. It is **not** Q4 classic
+AmigaOS qualification and must not be reported as such.
 
 ## Planned runtimes
 
