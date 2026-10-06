@@ -39,3 +39,41 @@ def encode_ans(asset: CharacterAsset) -> bytes:
             out.extend(b"\r\n")
     out.extend(ESC + b"0m")
     return bytes(out)
+
+
+def decode_ans(data: bytes, columns: int, rows: int) -> CharacterAsset:
+    cells = []
+    fg, bg, blink = 7, 0, False
+    i = 0
+    while i < len(data) and len(cells) < columns * rows:
+        if data[i:i + 2] == b"\x1b[":
+            end = data.find(b"m", i + 2)
+            if end < 0:
+                raise ValueError("unterminated ANSI SGR sequence")
+            raw = data[i + 2:end]
+            codes = [int(x) for x in raw.split(b";") if x] or [0]
+            bright = False
+            for code in codes:
+                if code == 0:
+                    fg, bg, blink, bright = 7, 0, False, False
+                elif code == 1:
+                    bright = True
+                elif code == 5:
+                    blink = True
+                elif 30 <= code <= 37:
+                    fg = code - 30 + (8 if bright else 0)
+                elif 40 <= code <= 47:
+                    bg = code - 40
+            i = end + 1
+            continue
+        if data[i:i + 2] == b"\r\n":
+            # Writer emits CR/LF only at exact row boundaries.
+            if len(cells) % columns:
+                raise ValueError("unexpected CR/LF before end of ANSI row")
+            i += 2
+            continue
+        cells.append(CharacterCell(data[i], fg, bg, blink))
+        i += 1
+    if len(cells) != columns * rows:
+        raise ValueError("ANSI data does not fill requested geometry")
+    return CharacterAsset(columns, rows, tuple(cells))
