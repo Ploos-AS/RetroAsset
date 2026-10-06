@@ -74,3 +74,64 @@ def screen_code_to_petscii(value: int) -> int:
     if 0x60 <= base <= 0x7f:
         return base + 0x40
     raise ValueError("unsupported screen code")
+
+
+# Common C64 PETSCII control bytes used by the M0.7 stream interpreter.
+_COLOR_CODES = {
+    0x90: 0,   # black
+    0x05: 1,   # white
+    0x1c: 2,   # red
+    0x9f: 3,   # cyan
+    0x9c: 4,   # purple
+    0x1e: 5,   # green
+    0x1f: 6,   # blue
+    0x9e: 7,   # yellow
+    0x81: 8,   # orange
+    0x95: 9,   # brown
+    0x96: 10,  # light red
+    0x97: 11,  # dark gray
+    0x98: 12,  # gray
+    0x99: 13,  # light green
+    0x9a: 14,  # light blue
+    0x9b: 15,  # light gray
+}
+
+
+def interpret_petscii(data: bytes, columns: int = 40, rows: int = 25) -> C64Screen:
+    cells = [PetsciiCell(0x20, 14) for _ in range(columns * rows)]
+    x = y = 0
+    color = 14
+    reverse = False
+
+    def put(screen_code: int):
+        nonlocal x, y
+        if 0 <= x < columns and 0 <= y < rows:
+            if reverse:
+                screen_code |= 0x80
+            cells[y * columns + x] = PetsciiCell(screen_code, color)
+        x += 1
+        if x >= columns:
+            x = 0
+            y = min(rows - 1, y + 1)
+
+    for value in data:
+        if value in _COLOR_CODES:
+            color = _COLOR_CODES[value]
+        elif value == 0x12:  # reverse on
+            reverse = True
+        elif value == 0x92:  # reverse off
+            reverse = False
+        elif value == 0x0d:  # carriage return / next line
+            x = 0
+            y = min(rows - 1, y + 1)
+        elif value == 0x93:  # clear/home
+            cells = [PetsciiCell(0x20, color) for _ in range(columns * rows)]
+            x = y = 0
+        elif value == 0x13:  # home
+            x = y = 0
+        else:
+            try:
+                put(petscii_to_screen_code(value))
+            except ValueError as exc:
+                raise ValueError(f"unsupported PETSCII control byte: 0x{value:02x}") from exc
+    return C64Screen(columns, rows, tuple(cells))
