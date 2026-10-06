@@ -9,6 +9,7 @@ from .exporters import export_asm, export_c, export_raw_planar
 from .indexed import IndexedBitmap
 from .model import AssetManifest
 from .profiles import PROFILES
+from .sauce import Sauce, decode_sauce, encode_sauce
 from .targets import validate
 
 
@@ -49,8 +50,8 @@ def main() -> int:
     char_import = sub.add_parser("char-import", help="import a native character-art asset")
     char_import.add_argument("source", type=Path)
     char_import.add_argument("--target", required=True, choices=("ansi-cp437",))
-    char_import.add_argument("--columns", type=int, required=True)
-    char_import.add_argument("--rows", type=int, required=True)
+    char_import.add_argument("--columns", type=int)
+    char_import.add_argument("--rows", type=int)
     char_import.add_argument("-o", "--output", type=Path, required=True)
 
     char_export = sub.add_parser("char-export", help="export a native character-art asset")
@@ -75,8 +76,13 @@ def main() -> int:
         return 0
 
     if args.command == "char-import":
-        payload = args.source.read_bytes()
-        asset = decode_ans(payload, args.columns, args.rows)
+        payload, sauce = decode_sauce(args.source.read_bytes())
+        columns = args.columns or (sauce.tinfo1 if sauce else 0)
+        rows = args.rows or (sauce.tinfo2 if sauce else 0)
+        if not columns or not rows:
+            print("error: character geometry requires --columns/--rows or SAUCE dimensions")
+            return 2
+        asset = decode_ans(payload, columns, rows)
         data = {
             "columns": asset.columns,
             "rows": asset.rows,
@@ -90,6 +96,17 @@ def main() -> int:
                 for cell in asset.cells
             ],
         }
+        if sauce is not None:
+            data["sauce"] = {
+                "title": sauce.title,
+                "author": sauce.author,
+                "group": sauce.group,
+                "date": sauce.date,
+                "data_type": sauce.data_type,
+                "file_type": sauce.file_type,
+                "tinfo1": sauce.tinfo1,
+                "tinfo2": sauce.tinfo2,
+            }
         args.output.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
         print(f"WROTE {args.output}")
         return 0
@@ -101,7 +118,11 @@ def main() -> int:
             rows=data["rows"],
             cells=tuple(CharacterCell(**cell) for cell in data["cells"]),
         )
-        args.output.write_bytes(encode_ans(asset))
+        payload = encode_ans(asset)
+        if "sauce" in data:
+            meta = Sauce(**data["sauce"])
+            payload += encode_sauce(meta, len(payload))
+        args.output.write_bytes(payload)
         print(f"WROTE {args.output}")
         return 0
 
