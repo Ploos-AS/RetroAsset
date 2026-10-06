@@ -12,6 +12,9 @@ class C64PrgLayoutTests(unittest.TestCase):
         )
         self.prg = export_viewer_prg(self.screen)
 
+    def test_basic_next_line_pointer_targets_end_marker(self):
+        self.assertEqual(self.prg[2:4], bytes([0x0c, 0x08]))
+
     def test_machine_code_starts_at_sys_address(self):
         load = int.from_bytes(self.prg[:2], "little")
         sys_addr = 2061
