@@ -41,7 +41,7 @@ static int decode_row(const unsigned char *src, size_t size, size_t *pos,
 }
 
 static int verify_buffer(const unsigned char *data, size_t file_size) {
-    unsigned char *bmhd = NULL, *body = NULL;
+    const unsigned char *bmhd = NULL, *body = NULL;
     size_t pos = 12, body_size = 0, stream_pos = 0;
     uint16_t width, height;
     unsigned planes, compression;
@@ -55,7 +55,7 @@ static int verify_buffer(const unsigned char *data, size_t file_size) {
     }
     while (pos + 8 <= (size_t)file_size) {
         uint32_t size = be32(data + pos + 4);
-        unsigned char *payload = data + pos + 8;
+        const unsigned char *payload = data + pos + 8;
         if (pos + 8 + size > (size_t)file_size) { return 0; }
         if (!memcmp(data + pos, "BMHD", 4)) bmhd = payload;
         if (!memcmp(data + pos, "BODY", 4)) { body = payload; body_size = size; }
