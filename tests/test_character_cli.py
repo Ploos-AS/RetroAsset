@@ -62,5 +62,27 @@ class CharacterCliTests(unittest.TestCase):
             self.assertEqual(json.loads(restored.read_text(encoding="utf-8")), source)
 
 
+    def test_c64_native_exports(self):
+        cells = [
+            {"screen_code": (i % 64), "color": (i % 16)}
+            for i in range(1000)
+        ]
+        source = {"columns": 40, "rows": 25, "cells": cells}
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "c64.json"
+            src.write_text(json.dumps(source), encoding="utf-8")
+            expected_sizes = {"screen": 1000, "color": 1000}
+            for fmt, size in expected_sizes.items():
+                out = root / fmt
+                subprocess.run([sys.executable, "-m", "retroasset.cli", "char-export", str(src),
+                                "--target", "c64-screen", "--format", fmt, "-o", str(out)], check=True)
+                self.assertEqual(out.stat().st_size, size)
+            prg = root / "viewer.prg"
+            subprocess.run([sys.executable, "-m", "retroasset.cli", "char-export", str(src),
+                            "--target", "c64-screen", "--format", "prg", "-o", str(prg)], check=True)
+            self.assertGreater(prg.stat().st_size, 2000)
+
+
 if __name__ == "__main__":
     unittest.main()
