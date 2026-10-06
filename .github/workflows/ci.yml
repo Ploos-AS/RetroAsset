@@ -19,3 +19,5 @@ jobs:
       - run: retroasset profile ansi-cp437
       - run: retroasset validate examples/amiga-ocs-sprite.json
       - run: retroasset validate examples/ansi-cp437-screen.json
+      - run: retroasset export examples/amiga-ocs-checker.json --target amiga-ocs --format ilbm -o /tmp/checker.ilbm
+      - run: test -s /tmp/checker.ilbm
