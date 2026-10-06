@@ -9,7 +9,7 @@ qualification.
 |---|---|---|
 | C64 PRG | PASS | PASS — VICE 3.7.1 + MEGA65 Open ROMs |
 | Amiga ILBM uncompressed | unit-tested / round-trip | Amiga runtime: not yet qualified |
-| Amiga ILBM ByteRun1 | encoder/unit tested | Amiga runtime: not yet qualified |
+| Amiga ILBM ByteRun1 | encode/decode round-trip PASS | Amiga runtime: not yet qualified |
 
 A native file format is not labelled runtime-qualified until it has been loaded
 by the documented emulator/runtime and evidence has been captured.
