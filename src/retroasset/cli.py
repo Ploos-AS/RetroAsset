@@ -6,7 +6,7 @@ from .amiga import encode_ilbm, encode_ilbm_compressed
 from .ansi import decode_ans, encode_ans
 from .character import CharacterAsset, CharacterCell
 from .c64prg import export_viewer_prg
-from .petscii import C64Screen, PetsciiCell, export_color_ram, export_screen_ram
+from .petscii import C64Screen, PetsciiCell, export_color_ram, export_screen_ram, interpret_petscii
 from .exporters import export_asm, export_c, export_raw_planar
 from .indexed import IndexedBitmap
 from .model import AssetManifest
@@ -51,7 +51,7 @@ def main() -> int:
 
     char_import = sub.add_parser("char-import", help="import a native character-art asset")
     char_import.add_argument("source", type=Path)
-    char_import.add_argument("--target", required=True, choices=("ansi-cp437",))
+    char_import.add_argument("--target", required=True, choices=("ansi-cp437", "c64-petscii"))
     char_import.add_argument("--columns", type=int)
     char_import.add_argument("--rows", type=int)
     char_import.add_argument("-o", "--output", type=Path, required=True)
@@ -79,36 +79,49 @@ def main() -> int:
         return 0
 
     if args.command == "char-import":
-        payload, sauce = decode_sauce(args.source.read_bytes())
-        columns = args.columns or (sauce.tinfo1 if sauce else 0)
-        rows = args.rows or (sauce.tinfo2 if sauce else 0)
-        if not columns or not rows:
-            print("error: character geometry requires --columns/--rows or SAUCE dimensions")
-            return 2
-        asset = decode_ans(payload, columns, rows)
-        data = {
-            "columns": asset.columns,
-            "rows": asset.rows,
-            "cells": [
-                {
-                    "codepoint": cell.codepoint,
-                    "foreground": cell.foreground,
-                    "background": cell.background,
-                    "blink": cell.blink,
+        if args.target == "ansi-cp437":
+            payload, sauce = decode_sauce(args.source.read_bytes())
+            columns = args.columns or (sauce.tinfo1 if sauce else 0)
+            rows = args.rows or (sauce.tinfo2 if sauce else 0)
+            if not columns or not rows:
+                print("error: character geometry requires --columns/--rows or SAUCE dimensions")
+                return 2
+            asset = decode_ans(payload, columns, rows)
+            data = {
+                "columns": asset.columns,
+                "rows": asset.rows,
+                "cells": [
+                    {
+                        "codepoint": cell.codepoint,
+                        "foreground": cell.foreground,
+                        "background": cell.background,
+                        "blink": cell.blink,
+                    }
+                    for cell in asset.cells
+                ],
+            }
+            if sauce is not None:
+                data["sauce"] = {
+                    "title": sauce.title,
+                    "author": sauce.author,
+                    "group": sauce.group,
+                    "date": sauce.date,
+                    "data_type": sauce.data_type,
+                    "file_type": sauce.file_type,
+                    "tinfo1": sauce.tinfo1,
+                    "tinfo2": sauce.tinfo2,
                 }
-                for cell in asset.cells
-            ],
-        }
-        if sauce is not None:
-            data["sauce"] = {
-                "title": sauce.title,
-                "author": sauce.author,
-                "group": sauce.group,
-                "date": sauce.date,
-                "data_type": sauce.data_type,
-                "file_type": sauce.file_type,
-                "tinfo1": sauce.tinfo1,
-                "tinfo2": sauce.tinfo2,
+        else:
+            columns = args.columns or 40
+            rows = args.rows or 25
+            screen = interpret_petscii(args.source.read_bytes(), columns, rows)
+            data = {
+                "columns": screen.columns,
+                "rows": screen.rows,
+                "cells": [
+                    {"screen_code": cell.screen_code, "color": cell.color}
+                    for cell in screen.cells
+                ],
             }
         args.output.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
         print(f"WROTE {args.output}")
