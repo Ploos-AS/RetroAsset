@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "project": "RetroAsset",
+  "milestone": "M0.5",
+  "architecture": "m68k",
+  "payload": {
+    "kind": "program",
+    "program": "ilbm-verify"
+  },
+  "emulator_profiles": ["a1200-020-aros"],
+  "result": {
+    "log": "retroasset-ilbm-runtime.log",
+    "required_lines": [
+      "RETROASSET_ILBM_UNCOMPRESSED_PASS 16x2 1-plane",
+      "RETROASSET_ILBM_BYTERUN1_PASS 16x2 1-plane"
+    ]
+  },
+  "policy": {
+    "roms_in_repository": false,
+    "amigaos_files_in_repository": false
+  }
+}

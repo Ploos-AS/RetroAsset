@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e .
+      - run: python -m unittest discover -s tests -v
+      - run: retroasset targets
+      - run: retroasset profile amiga-ocs
+      - run: retroasset profile ansi-cp437
+      - run: retroasset validate examples/amiga-ocs-sprite.json
+      - run: retroasset validate examples/ansi-cp437-screen.json
+      - run: retroasset export examples/amiga-ocs-checker.json --target amiga-ocs --format ilbm -o /tmp/checker.ilbm
+      - run: test -s /tmp/checker.ilbm
+      - name: Build OCI image
+        run: docker build -t retroasset:test .
+      - name: Smoke-test OCI CLI
+        run: docker run --rm retroasset:test targets
+      - name: Smoke-test OCI native export
+        run: |
+          mkdir -p /tmp/retroasset-oci
+          chmod 777 /tmp/retroasset-oci
+          docker run --rm \
+            -v "$PWD/examples:/work/input:ro" \
+            -v "/tmp/retroasset-oci:/work/output" \
+            retroasset:test export /work/input/amiga-ocs-checker.json \
+              --target amiga-ocs --format ilbm -o /work/output/checker.ilbm
+          test -s /tmp/retroasset-oci/checker.ilbm

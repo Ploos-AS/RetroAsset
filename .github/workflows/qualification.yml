@@ -1,0 +1,196 @@
+name: Emulator qualification
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [m0-foundation]
+    paths:
+      - "src/retroasset/c64prg.py"
+      - "src/retroasset/petscii.py"
+      - "src/retroasset/amiga.py"
+      - "qualification/**"
+      - ".github/workflows/qualification.yml"
+
+jobs:
+
+  amiga-m68k-q1:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e .
+      - name: Generate and embed ILBM fixtures
+        run: |
+          python qualification/generate_amiga_fixtures.py
+          python qualification/embed_amiga_fixtures.py
+      - name: Pull qualified Amiga development environment
+        run: docker pull ghcr.io/ploos-as/amiga-dev:edge
+      - name: Cross-build m68k guest verifier
+        run: |
+          mkdir -p qualification/runtime-input
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            -v "$PWD:/workspace:ro" \
+            -v "$PWD/qualification/runtime-input:/output" \
+            -w /workspace \
+            ghcr.io/ploos-as/amiga-dev:edge \
+            sh -ec 'amiga-check && m68k-amigaos-gcc -m68000 -Os -Wall -Wextra -Werror -DRETROASSET_EMBEDDED_FIXTURES qualification/amiga/ilbm_verify.c -o /tmp/ilbm-verify && file /tmp/ilbm-verify | tee /tmp/ilbm-file.txt && grep -Fq "AmigaOS loadseg()ble executable/binary" /tmp/ilbm-file.txt && cp /tmp/ilbm-verify /output/ilbm-verify'
+          cp qualification/amiga/amiga-runtime.json qualification/runtime-input/amiga-runtime.json
+          test -s qualification/runtime-input/ilbm-verify
+          test -s qualification/runtime-input/amiga-runtime.json
+      - name: Upload Q1 runtime payload
+        uses: actions/upload-artifact@v4
+        with:
+          name: retroasset-amiga-m68k-q1
+          path: qualification/runtime-input/
+          if-no-files-found: error
+
+
+  amiga-aros-q3:
+    needs: amiga-m68k-q1
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    env:
+      AMIGA_RUNTIME_IMAGE: ghcr.io/ploos-as/amiga-runtime:sha-fd7cc88
+    steps:
+      - name: Download Q1 payload
+        uses: actions/download-artifact@v4
+        with:
+          name: retroasset-amiga-m68k-q1
+          path: runtime-input
+      - name: Verify project contract
+        run: |
+          test -s runtime-input/amiga-runtime.json
+          jq -e '.schema == 1 and .architecture == "m68k"' runtime-input/amiga-runtime.json >/dev/null
+      - name: Pull immutable Amiga runtime
+        run: docker pull "$AMIGA_RUNTIME_IMAGE"
+      - name: Prepare AROS/m68k runtime
+        run: |
+          mkdir -p runtime-evidence runtime-aros
+          docker run --rm \
+            -v "$PWD/runtime-aros:/work/aros" \
+            -e AROS_RUNTIME_DIR=/work/aros \
+            "$AMIGA_RUNTIME_IMAGE" prepare-aros | tee runtime-evidence/aros-prepare.log
+          grep -Fq 'AROS m68k runtime prepared: PASS' runtime-evidence/aros-prepare.log
+      - name: Qualify RetroAsset ILBM payload in AROS/m68k
+        run: |
+          docker run --rm \
+            -v "$PWD/runtime-input:/work/input:ro" \
+            -v "$PWD/runtime-evidence:/work/evidence" \
+            -v "$PWD/runtime-aros:/work/aros" \
+            -e AROS_RUNTIME_DIR=/work/aros \
+            "$AMIGA_RUNTIME_IMAGE" qualify-contract /work/input --profile a1200-020-aros
+      - name: Upload AROS qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: retroasset-amiga-aros-q3-evidence
+          path: runtime-evidence/
+          if-no-files-found: warn
+
+  c64-structural:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e .
+      - run: python -m unittest tests.test_c64prg tests.test_c64prg_layout -v
+      - run: python qualification/generate_c64_fixture.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: retroasset-c64-fixture
+          path: qualification/generated/
+
+  c64-vice-open-roms:
+    runs-on: ubuntu-latest
+    needs: c64-structural
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e .
+      - run: python qualification/generate_c64_fixture.py
+      - name: Install VICE and Open ROMs build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y vice git make gcc libpng-dev
+          x64sc --version
+      - name: Build redistributable C64 Open ROMs
+        run: |
+          git clone --depth 1 https://github.com/MEGA65/open-roms.git /tmp/open-roms
+          make -C /tmp/open-roms
+          find /tmp/open-roms/bin -maxdepth 1 -type f -print
+      - name: Locate Open ROMs
+        run: |
+          python qualification/find_open_roms.py /tmp/open-roms/bin qualification/generated/roms.env
+          cat qualification/generated/roms.env
+      - name: Run VICE qualification with Open ROMs
+        run: |
+          set -a
+          . qualification/generated/roms.env
+          set +a
+          xvfb-run -a x64sc \
+            -basic "$RETROASSET_BASIC_ROM" \
+            -kernal "$RETROASSET_KERNAL_ROM" \
+            -chargen "$RETROASSET_CHARGEN_ROM" \
+            -moncommands qualification/vice-monitor.txt \
+            -console
+      - name: Verify emulated RAM
+        run: python qualification/verify_c64.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: retroasset-c64-vice-open-roms-evidence
+          path: qualification/generated/
+
+  amiga-ilbm-consumer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e .
+      - run: python -m unittest tests.test_amiga -v
+      - run: python qualification/generate_amiga_fixtures.py
+      - name: Build standalone ILBM verifier
+        run: |
+          cc -std=c99 -Wall -Wextra -Werror -O2 qualification/amiga/ilbm_verify.c -o qualification/generated/ilbm-verify-host
+          qualification/generated/ilbm-verify-host qualification/generated/amiga-uncompressed.ilbm qualification/generated/amiga-byterun1.ilbm | tee qualification/generated/ilbm-verify-host.log
+          grep -Fq 'RETROASSET_ILBM_UNCOMPRESSED_PASS' qualification/generated/ilbm-verify-host.log
+          grep -Fq 'RETROASSET_ILBM_BYTERUN1_PASS' qualification/generated/ilbm-verify-host.log
+      - name: Smoke-test embedded guest payload mode
+        run: |
+          python qualification/embed_amiga_fixtures.py
+          cc -std=c99 -Wall -Wextra -Werror -O2 -DRETROASSET_EMBEDDED_FIXTURES qualification/amiga/ilbm_verify.c -o qualification/generated/ilbm-verify-embedded-host
+          qualification/generated/ilbm-verify-embedded-host | tee qualification/generated/ilbm-verify-embedded-host.log
+          grep -Fq 'RETROASSET_ILBM_UNCOMPRESSED_PASS' qualification/generated/ilbm-verify-embedded-host.log
+          grep -Fq 'RETROASSET_ILBM_BYTERUN1_PASS' qualification/generated/ilbm-verify-embedded-host.log
+      - name: Install independent ILBM consumer
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick
+          convert -version
+      - name: Decode generated ILBM files independently
+        run: |
+          identify qualification/generated/amiga-uncompressed.ilbm
+          identify qualification/generated/amiga-byterun1.ilbm
+          convert qualification/generated/amiga-uncompressed.ilbm qualification/generated/amiga-uncompressed.ppm
+          convert qualification/generated/amiga-byterun1.ilbm qualification/generated/amiga-byterun1.ppm
+          test -s qualification/generated/amiga-uncompressed.ppm
+          test -s qualification/generated/amiga-byterun1.ppm
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: retroasset-amiga-ilbm-consumer-evidence
+          path: qualification/generated/

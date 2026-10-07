@@ -1,0 +1,10 @@
+; RetroAsset C64 qualification.
+; Load PRG directly; no disk/drive ROM is required.
+load "qualification/generated/fixture.prg" 0
+; Viewer code completes at the RTS at $0869.
+break 0869
+g 080d
+; Playback resumes here after the breakpoint is hit.
+bsave "qualification/generated/screen-dump.bin" 0 0400 07e7
+bsave "qualification/generated/color-dump.bin" 0 d800 dbe7
+quit
