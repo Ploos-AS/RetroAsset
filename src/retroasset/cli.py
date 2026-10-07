@@ -6,6 +6,7 @@ from .amiga import encode_ilbm, encode_ilbm_compressed
 from .ansi import decode_ans, encode_ans
 from .character import CharacterAsset, CharacterCell
 from .c64prg import export_viewer_prg
+from .conversion import native_report
 from .petscii import C64Screen, PetsciiCell, export_color_ram, export_screen_ram, interpret_petscii
 from .exporters import export_asm, export_c, export_raw_planar
 from .indexed import IndexedBitmap
@@ -55,12 +56,14 @@ def main() -> int:
     char_import.add_argument("--columns", type=int)
     char_import.add_argument("--rows", type=int)
     char_import.add_argument("-o", "--output", type=Path, required=True)
+    char_import.add_argument("--report", type=Path, help="write machine-readable conversion report")
 
     char_export = sub.add_parser("char-export", help="export a native character-art asset")
     char_export.add_argument("source", type=Path)
     char_export.add_argument("--target", required=True, choices=("ansi-cp437", "c64-screen"))
     char_export.add_argument("--format", choices=("ans", "screen", "color", "prg"))
     char_export.add_argument("-o", "--output", type=Path, required=True)
+    char_export.add_argument("--report", type=Path, help="write machine-readable conversion report")
 
     args = parser.parse_args()
 
@@ -124,6 +127,9 @@ def main() -> int:
                 ],
             }
         args.output.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+        if args.report:
+            report = native_report(args.target, "character-ir")
+            args.report.write_text(json.dumps(report.as_dict(), indent=2) + "\n", encoding="utf-8")
         print(f"WROTE {args.output}")
         return 0
 
@@ -159,6 +165,9 @@ def main() -> int:
             else:
                 payload = export_viewer_prg(screen)
         args.output.write_bytes(payload)
+        if args.report:
+            report = native_report("character-ir", args.target)
+            args.report.write_text(json.dumps(report.as_dict(), indent=2) + "\n", encoding="utf-8")
         print(f"WROTE {args.output}")
         return 0
 
