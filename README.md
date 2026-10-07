@@ -6,7 +6,9 @@ RetroAsset turns generated, imported or hand-authored source material into asset
 
 ## Status
 
-M0 foundation is under development. The first executable target is **Amiga OCS**.
+M0 is release-ready as **RetroAsset 0.1.0**.
+
+The qualified M0 baseline includes native Amiga OCS/ECS/AGA profiles and exporters, ANSI/CP437 with SAUCE metadata, and C64 PETSCII/screen assets with raw and PRG export. Amiga and C64 outputs have emulator/runtime qualification in CI.
 
 Planned target families include:
 
@@ -75,7 +77,7 @@ Example after the image has been published:
 docker run --rm \
   -v "$PWD/examples:/work/input:ro" \
   -v "$PWD/output:/work/output" \
-  ghcr.io/ploos-as/retroasset:edge \
+  ghcr.io/ploos-as/retroasset:0.1.0 \
   export /work/input/amiga-ocs-checker.json \
     --target amiga-ocs --format ilbm -o /work/output/checker.ilbm
 ```
