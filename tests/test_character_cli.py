@@ -99,5 +99,27 @@ class CharacterCliTests(unittest.TestCase):
             self.assertEqual(data["cells"][1], {"screen_code": 0x02, "color": 1})
 
 
+    def test_machine_readable_conversion_report(self):
+        source = {
+            "columns": 1,
+            "rows": 1,
+            "cells": [{"codepoint": 65, "foreground": 7, "background": 0, "blink": False}],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = root / "asset.json"
+            ans = root / "asset.ans"
+            report = root / "report.json"
+            src.write_text(json.dumps(source), encoding="utf-8")
+            subprocess.run([sys.executable, "-m", "retroasset.cli", "char-export", str(src),
+                            "--target", "ansi-cp437", "--report", str(report), "-o", str(ans)],
+                           check=True)
+            found = json.loads(report.read_text(encoding="utf-8"))
+            self.assertEqual(found["source"], "character-ir")
+            self.assertEqual(found["target"], "ansi-cp437")
+            self.assertFalse(found["lossy"])
+            self.assertEqual(found["losses"], [])
+
+
 if __name__ == "__main__":
     unittest.main()
