@@ -12,6 +12,8 @@ permissions:
 
 jobs:
   publish:
+    # Manual runs must not turn feature branches into published package sources.
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
