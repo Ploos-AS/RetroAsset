@@ -11,6 +11,9 @@ RUN pip install --no-cache-dir . \
     && addgroup -S retroasset \
     && adduser -S -G retroasset retroasset
 
+RUN mkdir -p /work/input /work/output \
+    && chown retroasset:retroasset /work/output
+
 WORKDIR /work
 USER retroasset
 ENTRYPOINT ["retroasset"]
